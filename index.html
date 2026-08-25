@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Man Projecrt Kent Events Calendar</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --event: #0f766e;
+    --bg: #f7f9fc;
+    --card: #ffffff;
+    --text: #172033;
+    --muted: #667085;
+    --border: #dfe5ee;
+    --focus: #111827;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  header { margin-bottom: 20px; }
+  h1 { margin: 0 0 6px; font-size: clamp(28px, 4vw, 40px); }
+  .subtitle { margin: 0; color: var(--muted); }
+  .toolbar {
+    display: flex; gap: 10px; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; margin: 18px 0;
+  }
+  .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button, select {
+    font: inherit; border: 1px solid var(--border); background: white;
+    border-radius: 8px; padding: 10px 13px; cursor:pointer;
+  }
+  button:hover { background:#f0f4f8; }
+  button:focus-visible, select:focus-visible, .day:focus-visible {
+    outline: 3px solid var(--focus); outline-offset: 2px;
+  }
+  .month { font-size: 22px; font-weight: 700; min-width: 190px; text-align:center; }
+  .calendar {
+    background: var(--card); border:1px solid var(--border);
+    border-radius: 14px; overflow: visible; box-shadow: 0 2px 10px rgba(0,0,0,.04);
+  }
+  .weekdays, .grid { display:grid; grid-template-columns: repeat(7, 1fr); }
+  .weekday { padding:12px; text-align:center; font-weight:700; color:var(--muted); border-bottom:1px solid var(--border); }
+  .day {
+    min-height: 125px; padding: 9px; border-right:1px solid var(--border);
+    border-bottom:1px solid var(--border); position:relative; background:white; cursor:pointer;
+  }
+  .day:nth-child(7n) { border-right:0; }
+  .day.other { background:#fafbfc; color:#98a2b3; }
+  .day.today .number {
+    background: var(--primary); color:white; width:30px; height:30px;
+    display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
+  }
+  .number { font-weight:700; display:inline-flex; width:30px; height:30px; align-items:center; justify-content:center; }
+  .events { margin-top:6px; display:flex; flex-direction:column; gap:5px; }
+  .event {
+    background:#e6f4f1; border-left:4px solid var(--event); padding:5px 7px;
+    border-radius:5px; font-size:13px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+  }
+  .event time { font-weight:700; }
+  .more { color:var(--primary-dark); font-size:12px; font-weight:700; padding-left:4px; }
+  .list-view { display:none; }
+  .list-view.active { display:block; }
+  .calendar.hidden { display:none; }
+  .list-day {
+    background:white; border:1px solid var(--border); border-radius:10px; padding:14px;
+    margin-bottom:10px;
+  }
+  .list-day h3 { margin:0 0 9px; }
+  .list-event { padding:10px; border-left:4px solid var(--event); background:#f7fbfa; margin-top:8px; cursor:pointer; border-radius:5px; }
+  .empty { padding:28px; text-align:center; color:var(--muted); }
+  .modal-backdrop {
+    display:none; position:fixed; inset:0; background:rgba(0,0,0,.5);
+    align-items:center; justify-content:center; padding:20px; z-index:10;
+  }
+  .modal-backdrop.open { display:flex; }
+  .modal {
+    background:white; width:min(620px, 100%); max-height:90vh; overflow:auto;
+    border-radius:14px; padding:24px; box-shadow:0 15px 50px rgba(0,0,0,.25);
+  }
+  .modal-header { display:flex; justify-content:space-between; gap:20px; }
+  .modal h2 { margin:0 0 8px; }
+  .close { font-size:24px; line-height:1; padding:6px 10px; }
+  .meta { color:var(--muted); margin:6px 0; }
+  .description { margin-top:18px; line-height:1.55; }
+  .source {
+    margin-top:18px; padding:12px; background:#eef5ff; border-radius:8px;
+    font-size:13px; color:#475467;
+  }
+  @media (max-width: 760px) {
+    .wrap { padding:14px; }
+    .weekdays, .grid { grid-template-columns: repeat(1, 1fr); }
+    .weekdays { display:none; }
+    .day { min-height:auto; border-right:0; padding:12px; }
+    .day.other { display:none; }
+    .events { margin-left:34px; margin-top:-29px; padding-bottom:3px; }
+    .event { white-space:normal; }
+    .month { min-width:150px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>MusicMan Events</h1>
+    <p class="subtitle">Inclusive music sessions, groups and activities.</p>
+  </header>
+
+  <div class="toolbar">
+    <div class="controls">
+      <button id="prev" aria-label="Previous month">‹ Previous</button>
+      <button id="today">Today</button>
+      <button id="next" aria-label="Next month">Next ›</button>
+    </div>
+    <div class="month" id="monthTitle" aria-live="polite"></div>
+    <div class="controls">
+      <label for="category">Filter:</label>
+      <select id="category" aria-label="Filter events by category">
+        <option value="All">All</option>
+      </select>
+      <button id="calendarBtn">Calendar</button>
+      <button id="listBtn">List</button>
+    </div>
+  </div>
+
+  <main>
+    <section id="calendar" class="calendar" aria-label="Events calendar">
+      <div class="weekdays">
+        <div class="weekday">Monday</div><div class="weekday">Tuesday</div>
+        <div class="weekday">Wednesday</div><div class="weekday">Thursday</div>
+        <div class="weekday">Friday</div><div class="weekday">Saturday</div><div class="weekday">Sunday</div>
+      </div>
+      <div class="grid" id="calendarGrid"></div>
+    </section>
+    <section id="listView" class="list-view" aria-label="Events list"></section>
+  </main>
+
+  <div class="source">
+    <strong>Prototype data source:</strong> This demo uses <code>events.csv</code>.
+    To connect a live Google Sheet, replace <code>GOOGLE_SHEET_CSV_URL</code> in the script below
+    with the published CSV URL of the MusicMan events sheet.
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop" role="presentation">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <div>
+        <h2 id="modalTitle"></h2>
+        <div class="meta" id="modalDate"></div>
+        <div class="meta" id="modalLocation"></div>
+      </div>
+      <button class="close" id="closeModal" aria-label="Close event details">×</button>
+    </div>
+    <div class="description" id="modalDescription"></div>
+    <div id="modalLink"></div>
+  </div>
+</div>
+
+<script>
+/*
+  LIVE GOOGLE SHEET SETUP
+  -----------------------
+  1. Create a Google Sheet with these headers:
+     Date, Start, End, Event, Location, Category, Description, Booking Link
+  2. In Google Sheets choose File > Share > Publish to web.
+  3. Publish the sheet as CSV.
+  4. Paste the resulting CSV URL below.
+*/
+const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRmMUFUYAIrC_xURzqW_BYB5LbAz2zvHVAHS9jSyuTWsIHinNn-Bhk_HWYpVsrhOMqmNY2idAMfLlX3/pub?output=csv"; // e.g. https://docs.google.com/spreadsheets/d/e/.../pub?output=csv
+
+const demoEvents = [
+  {date:"2026-08-21", start:"10:30", end:"12:00", event:"Inclusive Music Session", location:"MusicMan Centre", category:"General", description:"A relaxed group music session welcoming participants of all abilities.", link:""},
+  {date:"2026-08-24", start:"14:00", end:"15:00", event:"Guitar & Ukulele Group", location:"MusicMan Centre", category:"Guitar", description:"A friendly session exploring guitar and ukulele playing together.", link:""},
+  {date:"2026-08-27", start:"11:00", end:"12:30", event:"Percussion & Drumming", location:"Community Centre", category:"Percussion", description:"Rhythm, percussion and drumming activities in an inclusive group setting.", link:""},
+  {date:"2026-09-01", start:"10:00", end:"11:30", event:"Keyboard Group", location:"MusicMan Centre", category:"Keyboard", description:"Beginner-friendly keyboard activities and group playing.", link:""},
+  {date:"2026-09-05", start:"13:00", end:"14:30", event:"Open Music Workshop", location:"MusicMan Centre", category:"General", description:"An open workshop with a mixture of instruments and musical activities.", link:""}
+];
+
+let events = [...demoEvents];
+let current = new Date(2026, 7, 1);
+let lastFocused = null;
+
+function parseCSV(text) {
+  const rows = [];
+  let row=[], cell="", quoted=false;
+  for (let i=0;i<text.length;i++) {
+    const c=text[i], n=text[i+1];
+    if (c === '"' && quoted && n === '"') { cell+='"'; i++; }
+    else if (c === '"') quoted=!quoted;
+    else if (c === ',' && !quoted) { row.push(cell); cell=""; }
+    else if ((c === '\n' || c === '\r') && !quoted) {
+      if (c === '\r' && n === '\n') i++;
+      row.push(cell); cell="";
+      if (row.some(v=>v.trim()!=="")) rows.push(row);
+      row=[];
+    } else cell+=c;
+  }
+  if (cell!=="" || row.length) { row.push(cell); if(row.some(v=>v.trim()!=="")) rows.push(row); }
+  return rows;
+}
+
+async function loadEvents() {
+  if (!GOOGLE_SHEET_CSV_URL) return;
+  try {
+    const res = await fetch(GOOGLE_SHEET_CSV_URL, {cache:"no-store"});
+    if (!res.ok) throw new Error("Could not load Google Sheet");
+    const rows = parseCSV(await res.text());
+    const headers = rows.shift().map(h=>h.trim().toLowerCase());
+    const idx = name => headers.indexOf(name.toLowerCase());
+    events = rows.map(r => ({
+      date:r[idx("Date")]?.trim() || "",
+      start:r[idx("Start")]?.trim() || "",
+      end:r[idx("End")]?.trim() || "",
+      event:r[idx("Event")]?.trim() || "",
+      location:r[idx("Location")]?.trim() || "",
+      category:r[idx("Category")]?.trim() || "General",
+      description:r[idx("Description")]?.trim() || "",
+      link:r[idx("Booking Link")]?.trim() || ""
+    })).filter(e=>e.date && e.event);
+    populateCategories();
+    render();
+  } catch (err) {
+    console.error("MusicMan calendar error:", err);
+
+    const source = document.querySelector(".source");
+    source.innerHTML = `
+      <strong>⚠️ Unable to load MusicMan events</strong><br>
+      The calendar could not retrieve the Google Sheet.
+      Please check that the sheet is published as CSV and that the
+      Google Sheets URL in index.html is correct.
+    `;
+    source.style.background = "#FEE4E2";
+  }
+}
+
+function populateCategories() {
+  const select=document.getElementById("category");
+  const currentValue=select.value;
+  const cats=[...new Set(events.map(e=>e.category).filter(Boolean))].sort();
+  select.innerHTML='<option value="All">All</option>'+cats.map(c=>`<option>${escapeHtml(c)}</option>`).join("");
+  if ([...select.options].some(o=>o.value===currentValue)) select.value=currentValue;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function eventDate(e) {
+  const value = String(e.date || "").trim();
+
+  // Google Sheets / UK format: DD/MM/YYYY
+  const ukMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (ukMatch) {
+    const [, day, month, year] = ukMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  // DD-MM-YYYY
+  const dashMatch = value.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dashMatch) {
+    const [, day, month, year] = dashMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  // ISO format: YYYY-MM-DD
+  const isoMatch = value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
+
+  return new Date(value);
+}
+function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function filteredEvents(){ const cat=document.getElementById("category").value; return events.filter(e=>cat==="All" || e.category===cat); }
+
+function render() {
+  const y=current.getFullYear(), m=current.getMonth();
+  document.getElementById("monthTitle").textContent=current.toLocaleDateString("en-GB",{month:"long",year:"numeric"});
+  const first=new Date(y,m,1), last=new Date(y,m+1,0);
+  const startOffset=(first.getDay()+6)%7;
+  const days=Math.ceil((startOffset+last.getDate())/7)*7;
+  const grid=document.getElementById("calendarGrid");
+  grid.innerHTML="";
+  const filtered=filteredEvents();
+  for(let i=0;i<days;i++){
+    const d=new Date(y,m,1-startOffset+i);
+    const cell=document.createElement("div");
+    cell.className="day"+(d.getMonth()!==m?" other":"");
+    cell.tabIndex=0;
+    const today=new Date();
+    if(sameDay(d,today)) cell.classList.add("today");
+    cell.setAttribute("role","button");
+    cell.setAttribute("aria-label",d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"}));
+    const dayEvents=filtered.filter(e=>sameDay(eventDate(e),d));
+    cell.innerHTML=`<span class="number">${d.getDate()}</span><div class="events">${
+      dayEvents.slice(0,3).map((e,idx)=>`<div class="event" title="${escapeHtml(e.event)}" data-index="${events.indexOf(e)}"><time>${escapeHtml(formatTime(e.start))}</time> ${escapeHtml(e.event)}</div>`).join("")
+    }${dayEvents.length>3?`<div class="more">+ ${dayEvents.length-3} more — click for details</div>`:""}</div>`;
+    cell.addEventListener("click",()=>openDay(d));
+    cell.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();openDay(d);}});
+    cell.querySelectorAll(".event").forEach(el=>el.addEventListener("click",ev=>{
+      ev.stopPropagation(); openEvent(events[Number(el.dataset.index)], cell);
+    }));
+    grid.appendChild(cell);
+  }
+  renderList();
+}
+
+function renderList() {
+  const list=document.getElementById("listView"), filtered=filteredEvents();
+  const monthEvents=filtered.filter(e=>eventDate(e).getFullYear()===current.getFullYear() && eventDate(e).getMonth()===current.getMonth())
+    .sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));
+  if(!monthEvents.length){list.innerHTML='<div class="empty">No events found for this month.</div>';return;}
+  const groups={};
+  monthEvents.forEach(e=>(groups[e.date]??=[]).push(e));
+  list.innerHTML=Object.entries(groups).map(([date,items])=>{
+    const d=eventDate({date});
+    return `<div class="list-day"><h3>${d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"})}</h3>${
+      items.map(e=>`<div class="list-event" data-key="${events.indexOf(e)}"><strong>${escapeHtml(formatTime(e.start))}${formatTime(e.end)?" – "+escapeHtml(formatTime(e.end)):""}</strong> · ${escapeHtml(e.event)}<br><span class="meta">${escapeHtml(e.location)}</span></div>`).join("")
+    }</div>`;
+  }).join("");
+  list.querySelectorAll(".list-event").forEach(el=>el.addEventListener("click",()=>openEvent(events[Number(el.dataset.key)],el)));
+}
+
+function openDay(d){
+  const matches=filteredEvents().filter(e=>sameDay(eventDate(e),d));
+  if(matches.length===1) openEvent(matches[0]);
+  else if(matches.length) {
+    const title=d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+    document.getElementById("modalTitle").textContent=title;
+    document.getElementById("modalDate").textContent=`${matches.length} events`;
+    document.getElementById("modalLocation").textContent="";
+    document.getElementById("modalDescription").innerHTML=matches.map(e=>`<div class="list-event" data-key="${events.indexOf(e)}"><strong>${escapeHtml(formatTime(e.start))}${formatTime(e.end)?" – "+escapeHtml(formatTime(e.end)):""}</strong> · ${escapeHtml(e.event)}<br><span class="meta">${escapeHtml(e.location)}</span></div>`).join("");
+    document.getElementById("modalDescription").querySelectorAll(".list-event").forEach(el=>el.addEventListener("click",()=>openEvent(events[Number(el.dataset.key)])));
+    document.getElementById("modalLink").innerHTML="";
+    showModal();
+  }
+}
+
+function formatTime(value) {
+  if (!value) return "";
+
+  const match = String(value).trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+
+  if (match) {
+    return `${match[1].padStart(2, "0")}:${match[2]}`;
+  }
+
+  return String(value).trim();
+}
+
+function openEvent(e, source){
+  lastFocused=source||document.activeElement;
+  document.getElementById("modalTitle").textContent=e.event;
+  const d=eventDate(e);
+  document.getElementById("modalDate").textContent=`${d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})} · ${formatTime(e.start)}${formatTime(e.end)?" – "+formatTime(e.end):""}`;
+  document.getElementById("modalLocation").textContent=e.location?`📍 ${e.location}`:"";
+  document.getElementById("modalDescription").textContent=e.description||"No additional information provided.";
+  document.getElementById("modalLink").innerHTML=e.link?`<p><a href="${escapeHtml(e.link)}" target="_blank" rel="noopener">More information / booking</a></p>`:"";
+  showModal();
+}
+
+function showModal(){document.getElementById("modalBackdrop").classList.add("open");document.getElementById("closeModal").focus();}
+function closeModal(){document.getElementById("modalBackdrop").classList.remove("open");if(lastFocused)lastFocused.focus();}
+
+document.getElementById("prev").onclick=()=>{current.setMonth(current.getMonth()-1);render();};
+document.getElementById("next").onclick=()=>{current.setMonth(current.getMonth()+1);render();};
+document.getElementById("today").onclick=()=>{current=new Date();current.setDate(1);render();};
+document.getElementById("category").onchange=render;
+document.getElementById("calendarBtn").onclick=()=>{document.getElementById("calendar").classList.remove("hidden");document.getElementById("listView").classList.remove("active");};
+document.getElementById("listBtn").onclick=()=>{document.getElementById("calendar").classList.add("hidden");document.getElementById("listView").classList.add("active");};
+document.getElementById("closeModal").onclick=closeModal;
+document.getElementById("modalBackdrop").addEventListener("click",e=>{if(e.target.id==="modalBackdrop")closeModal();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape" && document.getElementById("modalBackdrop").classList.contains("open"))closeModal();});
+
+populateCategories();
+render();
+loadEvents();
+</script>
+</body>
+</html>
