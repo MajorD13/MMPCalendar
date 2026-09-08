@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Music Man Projecrt Kent Events Calendar</title>
+<title>Music Man Project Kent Events Calendar</title>
 <style>
   :root {
     --primary: #FAB758;
@@ -45,11 +45,18 @@
     background: var(--card); border:1px solid var(--border);
     border-radius: 14px; overflow: visible; box-shadow: 0 2px 10px rgba(0,0,0,.04);
   }
-  .weekdays, .grid { display:grid; grid-template-columns: repeat(7, 1fr); }
+  .weekdays, .grid { display:grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .weekday { padding:12px; text-align:center; font-weight:700; color:var(--muted); border-bottom:1px solid var(--border); }
   .day {
-    min-height: 125px; padding: 9px; border-right:1px solid var(--border);
-    border-bottom:1px solid var(--border); position:relative; background:white; cursor:pointer;
+    height: 150px;
+    min-width: 0;
+    padding: 9px;
+    border-right:1px solid var(--border);
+    border-bottom:1px solid var(--border);
+    position:relative;
+    background:white;
+    cursor:pointer;
+    overflow:hidden;
   }
   .day:nth-child(7n) { border-right:0; }
   .day.other { background:#fafbfc; color:#98a2b3; }
@@ -58,10 +65,19 @@
     display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
   }
   .number { font-weight:700; display:inline-flex; width:30px; height:30px; align-items:center; justify-content:center; }
-  .events { margin-top:6px; display:flex; flex-direction:column; gap:5px; }
+  .events { margin-top:6px; display:flex; flex-direction:column; gap:5px; min-width:0; overflow:hidden; }
   .event {
-    background:#e6f4f1; border-left:4px solid var(--event); padding:5px 7px;
-    border-radius:5px; font-size:13px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+    background:#e6f4f1;
+    border-left:4px solid var(--event);
+    padding:5px 7px;
+    border-radius:5px;
+    font-size:13px;
+    line-height:1.25;
+    min-width:0;
+    overflow:hidden;
+    white-space:normal;
+    overflow-wrap:anywhere;
+    word-break:break-word;
   }
   .event time { font-weight:700; }
   .more { color:var(--primary-dark); font-size:12px; font-weight:700; padding-left:4px; }
@@ -97,7 +113,7 @@
     .wrap { padding:14px; }
     .weekdays, .grid { grid-template-columns: repeat(1, 1fr); }
     .weekdays { display:none; }
-    .day { min-height:auto; border-right:0; padding:12px; }
+    .day { height:auto; min-height:90px; border-right:0; padding:12px; overflow:visible; }
     .day.other { display:none; }
     .events { margin-left:34px; margin-top:-29px; padding-bottom:3px; }
     .event { white-space:normal; }
@@ -178,7 +194,8 @@ const demoEvents = [
 ];
 
 let events = [...demoEvents];
-let current = new Date(2026, 7, 1);
+let current = new Date();
+current.setDate(1);
 let lastFocused = null;
 
 function parseCSV(text) {
